@@ -1,0 +1,555 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>틈 업무 체크리스트</title>
+<style>
+:root{
+  --bg:#f6f5f2; --card:#fff; --ink:#1d1d1f; --sub:#6b6b70; --line:#e6e4df;
+  --accent:#2f6b4f; --accent-soft:#e6f0ea; --warn:#b4541a; --warn-soft:#fbeee4; --danger:#b3261e;
+  --r:12px;
+}
+@media (prefers-color-scheme:dark){
+  :root{--bg:#161616;--card:#202020;--ink:#f1f1f1;--sub:#a0a0a5;--line:#333;--accent:#6fbf93;--accent-soft:#1f3329;--warn:#e59a63;--warn-soft:#3a2a1e;--danger:#ff8a80}
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);
+  font-family:Pretendard,"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",system-ui,sans-serif;font-size:15px;-webkit-text-size-adjust:100%}
+button,input{font:inherit;color:inherit}
+button{cursor:pointer;background:none;border:0;padding:0}
+.wrap{max-width:1600px;margin:0 auto;padding:16px 16px 80px}
+header{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:14px}
+h1{font-size:20px;margin:0;letter-spacing:-.3px}
+.today-txt{color:var(--sub);font-size:13px;margin-top:2px}
+.sync{font-size:12px;color:var(--sub);display:flex;align-items:center;gap:6px;white-space:nowrap}
+.dot{width:8px;height:8px;border-radius:50%;background:#bbb}
+.dot.ok{background:var(--accent)} .dot.wait{background:#d8a33a} .dot.off{background:var(--danger)}
+.banner{background:var(--warn-soft);color:var(--warn);border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:13px;line-height:1.5}
+.people{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;margin-bottom:12px;scrollbar-width:none}
+.people::-webkit-scrollbar{display:none}
+.chip{flex:0 0 auto;padding:8px 14px;border-radius:999px;background:var(--card);border:1px solid var(--line);font-size:14px;white-space:nowrap}
+.chip.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.chip small{opacity:.65;margin-left:4px}
+.bar{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}
+.seg{display:inline-flex;background:var(--card);border:1px solid var(--line);border-radius:10px;padding:3px}
+.seg button{padding:7px 16px;border-radius:8px;font-size:14px;color:var(--sub)}
+.seg button.on{background:var(--accent);color:#fff}
+.datenav{display:flex;align-items:center;gap:6px}
+.datenav .lbl{min-width:150px;text-align:center;font-weight:600}
+.ibtn{width:36px;height:36px;border-radius:10px;background:var(--card);border:1px solid var(--line);font-size:16px}
+.tbtn{height:36px;padding:0 12px;border-radius:10px;background:var(--card);border:1px solid var(--line);font-size:13px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:16px}
+.owner-line{font-size:13px;color:var(--sub);margin-bottom:10px}
+.prog{display:flex;align-items:center;gap:10px;margin-bottom:14px;font-size:13px;color:var(--sub)}
+.prog .track{flex:1;height:6px;background:var(--line);border-radius:3px;overflow:hidden}
+.prog .fill{height:100%;background:var(--accent);transition:width .3s}
+form.add{display:flex;gap:8px;margin-bottom:12px}
+form.add input{flex:1;min-width:0;height:44px;border:1px solid var(--line);border-radius:10px;padding:0 12px;background:var(--bg)}
+form.add button{height:44px;padding:0 18px;border-radius:10px;background:var(--accent);color:#fff;font-weight:600}
+ul.list{list-style:none;margin:0;padding:0}
+.item{display:flex;align-items:flex-start;gap:10px;padding:10px 2px;border-top:1px solid var(--line)}
+.item:first-child{border-top:0}
+.chk{flex:0 0 auto;width:24px;height:24px;border-radius:50%;border:2px solid var(--sub);display:grid;place-items:center;color:transparent;font-size:13px;margin-top:1px}
+.item.done .chk{background:var(--accent);border-color:var(--accent);color:#fff}
+.chk[disabled]{cursor:default}
+.txt{flex:1;min-width:0;line-height:1.45;word-break:break-word;padding-top:2px}
+.item.done .title{color:var(--sub);text-decoration:line-through}
+.badge{display:inline-block;font-size:11px;padding:1px 7px;border-radius:999px;background:var(--warn-soft);color:var(--warn);margin-left:6px;vertical-align:1px;white-space:nowrap}
+.acts{display:flex;gap:4px;flex:0 0 auto}
+.acts button{height:30px;padding:0 10px;border-radius:8px;border:1px solid var(--line);font-size:12px;color:var(--sub);background:var(--card)}
+.acts button.more{width:30px;padding:0}
+.menu{flex-basis:100%;display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin:8px 0 2px 34px;padding:10px;background:var(--bg);border-radius:10px;font-size:13px}
+.menu input[type=date],.menu input[type=text]{height:34px;border:1px solid var(--line);border-radius:8px;padding:0 8px;background:var(--card)}
+.menu input[type=text]{flex:1;min-width:140px}
+.menu button{height:34px;padding:0 12px;border-radius:8px;border:1px solid var(--line);background:var(--card)}
+.menu .del{color:var(--danger);border-color:var(--danger)}
+.menu .del.solid{background:var(--danger);color:#fff}
+.item.wrapable{flex-wrap:wrap}
+.empty{color:var(--sub);text-align:center;padding:28px 0;font-size:14px}
+/* week */
+.week{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px}
+@media (max-width:1100px) and (min-width:861px){.week{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.col{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:10px;min-height:180px;display:flex;flex-direction:column}
+.col.today{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+.col h3{margin:0 0 6px;font-size:14px;display:flex;justify-content:space-between;align-items:baseline;cursor:pointer}
+.col h3 span{font-weight:400;font-size:12px;color:var(--sub)}
+.col.today h3{color:var(--accent)}
+.col .item{padding:7px 0;gap:7px;font-size:13px}
+.col .chk{width:20px;height:20px;font-size:11px}
+.col .acts{flex-basis:100%;margin-left:27px;opacity:.55;transition:opacity .15s}
+.col .item:hover .acts,.col .item:focus-within .acts{opacity:1}
+.col .acts button{height:24px;padding:0 8px;font-size:11px}
+.col .acts button.more{width:24px;padding:0}
+@media (hover:none){.col .acts{opacity:1}}
+.col .menu{margin-left:0}
+.col .add{margin:8px 0 0}
+.col form.add input{height:36px;font-size:13px}
+.col form.add button{height:36px;padding:0 10px;font-size:13px}
+.plus{margin-top:auto;padding-top:8px;color:var(--sub);font-size:13px;text-align:left}
+@media (max-width:860px){
+  .week{grid-template-columns:1fr}
+  .col{min-height:0}
+  .datenav .lbl{min-width:120px;font-size:14px}
+}
+@media (max-width:520px){
+  .wrap{padding:12px 12px 80px}
+  .bar{flex-direction:column;align-items:stretch}
+  .seg{align-self:flex-start}
+  .datenav{justify-content:space-between}
+  .acts .tm-label{display:none}
+}
+/* month */
+.month{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:6px}
+.mw{text-align:center;font-size:12px;color:var(--sub);padding:4px 0}
+.mc{background:var(--card);border:1px solid var(--line);border-radius:10px;min-height:104px;padding:6px 7px;cursor:pointer;overflow:hidden}
+.mc:hover{border-color:var(--sub)}
+.mc.out{background:transparent;border-style:dashed;cursor:default;opacity:.45}
+.mc.today{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+.mh{display:flex;justify-content:space-between;align-items:center;margin-bottom:4px}
+.dn{font-size:13px;font-weight:600}
+.mc.today .dn{color:var(--accent)}
+.dn.sun{color:var(--danger)} .dn.sat{color:#3b6fb6}
+.cnt{font-size:11px;padding:0 6px;border-radius:999px;background:var(--warn-soft);color:var(--warn)}
+.cnt.all{background:var(--accent-soft);color:var(--accent)}
+.ml{list-style:none;margin:0;padding:0;font-size:12px;line-height:1.5}
+.ml li{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ml li::before{content:"○ ";color:var(--sub)}
+.ml li.done{color:var(--sub);text-decoration:line-through}
+.ml li.done::before{content:"● ";color:var(--accent)}
+.ml li.more{color:var(--sub)} .ml li.more::before{content:""}
+.hint{font-size:12px;color:var(--sub);margin-top:10px;text-align:center}
+@media (max-width:620px){
+  .month{gap:3px}
+  .mc{min-height:58px;padding:4px}
+  .ml{display:none}
+  .mh{flex-direction:column;align-items:flex-start;gap:2px}
+  .cnt{font-size:10px;padding:0 4px}
+}
+
+.hbtn{height:30px;padding:0 10px;border-radius:8px;border:1px solid var(--line);background:var(--card);font-size:12px;color:var(--sub);margin-left:6px}
+.gate{max-width:420px;margin:12vh auto 0;text-align:center;background:var(--card);border:1px solid var(--line);border-radius:16px;padding:32px 24px}
+.gate h2{margin:0 0 10px;font-size:20px}
+.gate p{color:var(--sub);line-height:1.6;font-size:14px}
+.gate .small{font-size:12px;margin-top:16px}
+.gbtn{height:46px;padding:0 22px;border-radius:10px;background:var(--accent);color:#fff;font-weight:600;margin-top:8px}
+.gbtn.ghost{background:var(--card);color:var(--ink);border:1px solid var(--line)}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.45);display:grid;place-items:center;padding:16px;z-index:10}
+.modal[hidden]{display:none}
+.mbox{background:var(--card);border-radius:14px;padding:20px;width:100%;max-width:460px;max-height:85vh;overflow:auto}
+.mbox h3{margin:0 0 4px;font-size:17px}
+.mbox .desc{color:var(--sub);font-size:13px;margin:0 0 14px;line-height:1.5}
+.mbox ul{list-style:none;margin:12px 0 0;padding:0}
+.mbox li{display:flex;justify-content:space-between;align-items:center;padding:9px 0;border-top:1px solid var(--line);font-size:14px;gap:8px;word-break:break-all}
+.mbox li.muted{color:var(--sub);justify-content:center}
+.mbox li button{height:30px;padding:0 10px;border-radius:8px;border:1px solid var(--line);font-size:12px;flex:0 0 auto}
+.mbox .del{color:var(--danger);border-color:var(--danger)}
+.mbox .del.solid{background:var(--danger);color:#fff}
+.mfoot{text-align:right;margin-top:14px}
+.mfoot button{height:36px;padding:0 16px;border-radius:8px;border:1px solid var(--line)}
+#toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s;max-width:90vw}
+#toast.show{opacity:1}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <h1>틈 업무 체크리스트</h1>
+      <div class="today-txt" id="todayTxt"></div>
+    </div>
+    <div class="sync"><span class="dot wait" id="dot"></span><span id="syncTxt">연결 중…</span><button class="hbtn" id="adminBtn" hidden>직원 관리</button><button class="hbtn" id="logoutBtn" hidden>로그아웃</button></div>
+  </header>
+  <div id="gate" class="gate" hidden></div>
+  <div id="app" hidden>
+  <div id="banner"></div>
+  <nav class="people" id="people"></nav>
+  <div class="bar">
+    <div class="seg">
+      <button data-view="day" class="on">하루</button>
+      <button data-view="week">주간</button>
+      <button data-view="month">월간</button>
+    </div>
+    <div class="datenav">
+      <button class="ibtn" id="prev" aria-label="이전">‹</button>
+      <div class="lbl" id="dateLbl"></div>
+      <button class="ibtn" id="next" aria-label="다음">›</button>
+      <button class="tbtn" id="goToday">오늘</button>
+    </div>
+  </div>
+  <main id="main"></main>
+  </div>
+</div>
+<div id="toast"></div>
+<div class="modal" id="admin" hidden><div class="mbox">
+  <h3>직원 관리</h3>
+  <p class="desc">여기 등록한 구글 이메일만 로그인해서 사용할 수 있습니다.</p>
+  <form class="add" id="adminForm"><input id="newEmail" type="email" placeholder="직원 구글 이메일" autocomplete="off"><button>추가</button></form>
+  <ul id="adminList"></ul>
+  <div class="mfoot"><button id="adminClose">닫기</button></div>
+</div></div>
+
+<script type="module">
+/* ====== ① Firebase 설정: 콘솔에서 복사한 값으로 바꿔 주세요 ====== */
+const firebaseConfig = {
+  apiKey: "AIzaSyA-txUnDxhhsFbaHZ3N0dKe7_h-sW9N1lU",
+  authDomain: "teum-todo.firebaseapp.com",
+  projectId: "teum-todo",
+  storageBucket: "teum-todo.firebasestorage.app",
+  messagingSenderId: "595916409133",
+  appId: "1:595916409133:web:d8f719e437c0b14976eba4"
+};
+/* ====== ② 관리자(직원 관리 가능) 구글 이메일 — firestore.rules 와 같게 ====== */
+const ADMIN_EMAILS = ["esooue@gmail.com"].map(e=>e.toLowerCase());
+/* ================================================================ */
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { getFirestore, doc, collection, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot, arrayUnion, arrayRemove } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+/* ---------- 날짜 유틸 ---------- */
+const pad=n=>String(n).padStart(2,'0');
+const ymd=d=>`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+const parse=s=>{const [y,m,d]=s.split('-').map(Number);return new Date(y,m-1,d)};
+const addDays=(s,n)=>{const d=parse(s);d.setDate(d.getDate()+n);return ymd(d)};
+const diffDays=(a,b)=>Math.round((parse(a)-parse(b))/86400000);
+const today=()=>ymd(new Date());
+const DOW=['일','월','화','수','목','금','토'];
+const weekStart=s=>{const d=parse(s);d.setDate(d.getDate()-((d.getDay()+6)%7));return ymd(d)};
+const fmtDay=s=>{const d=parse(s);return `${d.getMonth()+1}월 ${d.getDate()}일 (${DOW[d.getDay()]})`};
+const fmtShort=s=>{const d=parse(s);return `${d.getMonth()+1}/${d.getDate()}`};
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+/* ---------- 상태 ---------- */
+const S={
+  db:null,user:null,me:'local',local:true,readOnly:false,
+  members:[],          // uid 목록
+  items:{},            // uid -> {id: item}
+  names:{},
+  viewing:'local',view:'day',day:today(),
+  openMenu:null,confirmDel:null,editing:null,addingDay:null,
+  rolled:false,lastToday:today()
+};
+
+/* ---------- 화면 보조 ---------- */
+function toast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(toast._t);toast._t=setTimeout(()=>t.classList.remove('show'),2600)}
+function setSync(kind,txt){const d=document.getElementById('dot');d.className='dot '+kind;document.getElementById('syncTxt').textContent=txt}
+function setBanner(html){document.getElementById('banner').innerHTML=html?`<div class="banner">${html}</div>`:''}
+
+/* ---------- 할 일 계산 ---------- */
+function effDate(it){return (!it.done && it.date<today())?today():it.date}
+function itemsOf(uid){return Object.values(S.items[uid]||{})}
+function itemsOn(uid,day){
+  return itemsOf(uid).filter(it=>effDate(it)===day)
+    .sort((a,b)=>(a.done-b.done)||((a.createdAt||0)-(b.createdAt||0)));
+}
+function badgeOf(it){
+  if(it.done||!it.origDate) return '';
+  const n=diffDays(effDate(it),it.origDate);
+  return n>0?`<span class="badge">+${n}일 밀림</span>`:'';
+}
+const editable=()=>S.viewing===S.me && !S.readOnly;
+
+/* ---------- 쓰기 ---------- */
+function handleErr(e){
+  console.error(e);
+  if(e&&e.code==='permission-denied') toast('권한이 없습니다. 관리자에게 접속 허용을 요청해 주세요.');
+  else toast('저장에 실패했습니다. 인터넷 연결을 확인해 주세요.');
+}
+function newId(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
+const itemRef=id=>doc(fs,'todos',S.me,'items',id);
+const ops={
+  add(title,date){
+    title=title.trim();if(!title||S.readOnly) return;
+    setDoc(itemRef(newId()),{title,date,origDate:date,done:false,createdAt:Date.now()}).catch(handleErr);
+  },
+  update(id,patch){updateDoc(itemRef(id),patch).catch(handleErr)},
+  remove(id){deleteDoc(itemRef(id)).catch(handleErr)}
+};
+
+/* 지난 날짜의 미완료 항목을 오늘로 옮김 (본인 항목만, 바뀔 때만 저장) */
+function rollover(){
+  if(S.readOnly) return;
+  const t=today();
+  itemsOf(S.me).forEach(it=>{if(!it.done && it.date<t) ops.update(it.id,{date:t})});
+}
+
+/* ---------- 렌더링 ---------- */
+function nameOf(uid){
+  if(uid==='local') return '나';
+  return S.names[uid]||'이름 없음';
+}
+function renderPeople(){
+  const list=[S.me,...S.members.filter(u=>u!==S.me)];
+  document.getElementById('people').innerHTML=list.map(uid=>{
+    const open=itemsOn(uid,today()).filter(i=>!i.done).length;
+    const label=uid===S.me?`나${S.local?'':' · '+esc(nameOf(uid))}`:esc(nameOf(uid));
+    return `<button class="chip ${uid===S.viewing?'on':''}" data-person="${esc(uid)}">${label}<small>${open}</small></button>`;
+  }).join('');
+}
+function itemHTML(it,compact){
+  const ed=editable();
+  const menuOpen=S.openMenu===it.id && ed;
+  let menu='';
+  if(menuOpen){
+    if(S.confirmDel===it.id){
+      menu=`<div class="menu">이 항목을 삭제할까요?
+        <button class="del solid" data-act="delyes">삭제</button><button data-act="delno">취소</button></div>`;
+    }else if(S.editing===it.id){
+      menu=`<div class="menu"><input type="text" id="editInput" value="${esc(it.title)}" maxlength="200">
+        <button data-act="editsave">저장</button><button data-act="close">취소</button></div>`;
+    }else{
+      menu=`<div class="menu">
+        <label>날짜 <input type="date" data-act="setdate" value="${esc(effDate(it))}"></label>
+        <button data-act="edit">내용 수정</button>
+        <button class="del" data-act="del">삭제</button>
+        <button data-act="close">닫기</button></div>`;
+    }
+  }
+  const acts=ed?`<div class="acts">
+      ${!it.done?`<button data-act="tomorrow" title="내일로 미루기">→<span class="tm-label"> 내일로</span></button>`:''}
+      <button class="more" data-act="more" title="더보기">⋯</button></div>`:'';
+  return `<li class="item wrapable ${it.done?'done':''}" data-id="${esc(it.id)}">
+    <button class="chk" data-act="toggle" ${ed?'':'disabled'} aria-label="완료 체크">✓</button>
+    <div class="txt"><span class="title">${esc(it.title)}</span>${badgeOf(it)}</div>
+    ${acts}${menu}</li>`;
+}
+function renderDay(){
+  const uid=S.viewing,list=itemsOn(uid,S.day);
+  const done=list.filter(i=>i.done).length,pct=list.length?Math.round(done/list.length*100):0;
+  const ed=editable();
+  return `<section class="card">
+    ${uid!==S.me?`<div class="owner-line">${esc(nameOf(uid))}님의 할 일 · 보기 전용</div>`:''}
+    <div class="prog"><span>${done}/${list.length} 완료</span><div class="track"><div class="fill" style="width:${pct}%"></div></div><span>${pct}%</span></div>
+    ${ed?`<form class="add" data-day="${S.day}"><input name="t" placeholder="할 일을 입력하고 Enter" autocomplete="off" maxlength="200"><button>추가</button></form>`:''}
+    ${list.length?`<ul class="list">${list.map(i=>itemHTML(i,false)).join('')}</ul>`:`<div class="empty">${S.day===today()?'오늘':'이 날'} 등록된 할 일이 없습니다.</div>`}
+  </section>`;
+}
+function renderWeek(){
+  const ws=weekStart(S.day),t=today(),ed=editable(),uid=S.viewing;
+  let html=uid!==S.me?`<div class="owner-line">${esc(nameOf(uid))}님의 주간 할 일 · 보기 전용</div>`:'';
+  html+='<div class="week">';
+  for(let i=0;i<7;i++){
+    const d=addDays(ws,i),list=itemsOn(uid,d),done=list.filter(x=>x.done).length;
+    html+=`<div class="col ${d===t?'today':''}">
+      <h3 data-goday="${d}">${DOW[parse(d).getDay()]} ${fmtShort(d)}<span>${list.length?done+'/'+list.length:''}</span></h3>
+      <ul class="list">${list.map(x=>itemHTML(x,true)).join('')}</ul>
+      ${ed?(S.addingDay===d
+        ?`<form class="add" data-day="${d}"><input name="t" placeholder="할 일 입력" autocomplete="off" maxlength="200"><button>추가</button></form>`
+        :`<button class="plus" data-addday="${d}">+ 추가</button>`):''}
+    </div>`;
+  }
+  return html+'</div>';
+}
+function renderMonth(){
+  const uid=S.viewing,t=today(),d0=parse(S.day);
+  const first=ymd(new Date(d0.getFullYear(),d0.getMonth(),1));
+  const month=d0.getMonth();
+  const start=weekStart(first);
+  let total=0,doneAll=0,cells='';
+  for(let i=0;i<42;i++){
+    const d=addDays(start,i),dd=parse(d);
+    if(i>=35&&dd.getMonth()!==month) break;
+    const inMonth=dd.getMonth()===month;
+    const list=inMonth?itemsOn(uid,d):[];
+    const done=list.filter(x=>x.done).length;
+    total+=list.length;doneAll+=done;
+    const dow=dd.getDay();
+    const shown=list.slice(0,3).map(x=>`<li class="${x.done?'done':''}">${esc(x.title)}</li>`).join('');
+    const more=list.length>3?`<li class="more">+${list.length-3}개 더</li>`:'';
+    cells+=`<div class="mc ${inMonth?'':'out'} ${d===t?'today':''}" ${inMonth?`data-goday="${d}"`:''}>
+      <div class="mh"><span class="dn ${dow===0?'sun':dow===6?'sat':''}">${dd.getDate()}</span>
+        ${list.length?`<span class="cnt ${done===list.length?'all':''}">${done}/${list.length}</span>`:''}</div>
+      ${list.length?`<ul class="ml">${shown}${more}</ul>`:''}
+    </div>`;
+  }
+  const pct=total?Math.round(doneAll/total*100):0;
+  return `${uid!==S.me?`<div class="owner-line">${esc(nameOf(uid))}님의 월간 할 일 · 보기 전용</div>`:''}
+    <div class="prog"><span>이번 달 ${doneAll}/${total} 완료</span><div class="track"><div class="fill" style="width:${pct}%"></div></div><span>${pct}%</span></div>
+    <div class="month">${['월','화','수','목','금','토','일'].map(w=>`<div class="mw">${w}</div>`).join('')}${cells}</div>
+    <div class="hint">날짜를 누르면 그날 할 일을 보고 추가·수정할 수 있습니다.</div>`;
+}
+function render(){
+  document.getElementById('todayTxt').textContent='오늘 '+fmtDay(today());
+  document.querySelectorAll('.seg button').forEach(b=>b.classList.toggle('on',b.dataset.view===S.view));
+  const ws=weekStart(S.day);
+  const md=parse(S.day);
+  document.getElementById('dateLbl').textContent=S.view==='day'
+    ?fmtDay(S.day)
+    :S.view==='week'?`${fmtShort(ws)} ~ ${fmtShort(addDays(ws,6))}`
+    :`${md.getFullYear()}년 ${md.getMonth()+1}월`;
+  renderPeople();
+  const active=document.activeElement;
+  const keep=active&&active.tagName==='INPUT'&&active.name==='t'?{day:active.closest('form')?.dataset.day,val:active.value}:null;
+  document.getElementById('main').innerHTML=S.view==='day'?renderDay():S.view==='week'?renderWeek():renderMonth();
+  if(keep){const f=document.querySelector(`form.add[data-day="${keep.day}"] input`);if(f){f.value=keep.val;f.focus()}}
+  const ei=document.getElementById('editInput');if(ei&&S.editing){ei.focus();ei.setSelectionRange(ei.value.length,ei.value.length)}
+}
+
+/* ---------- 이벤트 ---------- */
+document.querySelector('.seg').addEventListener('click',e=>{
+  const b=e.target.closest('button');if(!b) return;S.view=b.dataset.view;S.openMenu=null;render();
+});
+function shiftMonth(s,n){const d=parse(s);return ymd(new Date(d.getFullYear(),d.getMonth()+n,1))}
+function step(dir){
+  if(S.view==='day') S.day=addDays(S.day,dir);
+  else if(S.view==='week') S.day=addDays(S.day,7*dir);
+  else S.day=shiftMonth(S.day,dir);
+  S.openMenu=null;render();
+}
+document.getElementById('prev').onclick=()=>step(-1);
+document.getElementById('next').onclick=()=>step(1);
+document.getElementById('goToday').onclick=()=>{S.day=today();S.openMenu=null;render()};
+document.getElementById('people').addEventListener('click',e=>{
+  const b=e.target.closest('[data-person]');if(!b) return;
+  S.viewing=b.dataset.person;S.openMenu=null;S.addingDay=null;render();
+});
+const main=document.getElementById('main');
+main.addEventListener('submit',e=>{
+  e.preventDefault();
+  const f=e.target,inp=f.querySelector('input');
+  const v=inp.value;inp.value='';
+  ops.add(v,f.dataset.day);
+  document.querySelector(`form.add[data-day="${f.dataset.day}"] input`)?.focus();
+});
+main.addEventListener('click',e=>{
+  const goday=e.target.closest('[data-goday]');
+  if(goday){S.day=goday.dataset.goday;S.view='day';S.openMenu=null;render();return}
+  const addday=e.target.closest('[data-addday]');
+  if(addday){S.addingDay=addday.dataset.addday;render();document.querySelector(`form.add[data-day="${S.addingDay}"] input`)?.focus();return}
+  const btn=e.target.closest('[data-act]');if(!btn||btn.tagName==='INPUT') return;
+  const li=btn.closest('.item');const id=li&&li.dataset.id;if(!id||!editable()) return;
+  const it=S.items[S.me]?.[id];if(!it) return;
+  switch(btn.dataset.act){
+    case 'toggle':ops.update(id,it.done?{done:false,doneAt:null}:{done:true,doneAt:Date.now(),date:effDate(it)});break;
+    case 'tomorrow':ops.update(id,{date:addDays(effDate(it),1)});toast('내일로 미뤘습니다.');break;
+    case 'more':S.openMenu=S.openMenu===id?null:id;S.confirmDel=null;S.editing=null;render();break;
+    case 'close':S.openMenu=null;S.confirmDel=null;S.editing=null;render();break;
+    case 'del':S.confirmDel=id;render();break;
+    case 'delno':S.confirmDel=null;render();break;
+    case 'delyes':S.openMenu=null;S.confirmDel=null;ops.remove(id);toast('삭제했습니다.');break;
+    case 'edit':S.editing=id;render();break;
+    case 'editsave':{const v=document.getElementById('editInput').value.trim();if(v&&v!==it.title) ops.update(id,{title:v});S.editing=null;S.openMenu=null;render();break}
+  }
+});
+main.addEventListener('change',e=>{
+  if(e.target.dataset.act!=='setdate'||!e.target.value) return;
+  const id=e.target.closest('.item').dataset.id;
+  ops.update(id,{date:e.target.value});S.openMenu=null;toast(fmtDay(e.target.value)+'(으)로 옮겼습니다.');
+});
+main.addEventListener('keydown',e=>{
+  if(e.target.id==='editInput'){
+    if(e.key==='Enter'){e.preventDefault();main.querySelector('[data-act="editsave"]').click()}
+    if(e.key==='Escape'){S.editing=null;S.openMenu=null;render()}
+  }
+});
+
+/* 자정이 지나거나 다시 화면을 열면 날짜 갱신 + 자동 넘김 */
+function checkDayChange(){
+  const t=today();
+  if(t!==S.lastToday){if(S.day===S.lastToday) S.day=t;S.lastToday=t;rollover();render()}
+}
+setInterval(checkDayChange,60000);
+document.addEventListener('visibilitychange',()=>{if(!document.hidden) checkDayChange()});
+
+/* ---------- 화면 전환 ---------- */
+function showGate(kind,extra){
+  document.getElementById('app').hidden=true;
+  document.getElementById('adminBtn').hidden=true;
+  document.getElementById('logoutBtn').hidden=kind==='login'||kind==='config';
+  const g=document.getElementById('gate');g.hidden=false;
+  if(kind==='config'){
+    g.innerHTML=`<h2>설정이 필요합니다</h2><p>index.html 상단의 <b>firebaseConfig</b>와 <b>ADMIN_EMAILS</b>를 채워 주세요.</p>`;
+  }else if(kind==='login'){
+    g.innerHTML=`<h2>틈 업무 체크리스트</h2><p>회사 직원만 사용할 수 있습니다.<br>구글 계정으로 로그인해 주세요.</p>
+      <button class="gbtn" id="loginBtn">Google 계정으로 로그인</button>
+      <p class="small">카카오톡 안에서 열면 로그인이 안 될 수 있습니다. 크롬·사파리에서 열어 주세요.</p>`;
+    document.getElementById('loginBtn').onclick=login;
+  }else if(kind==='pending'){
+    g.innerHTML=`<h2>접속 승인 대기 중</h2><p><b>${esc(extra)}</b> 계정은 아직 등록되지 않았습니다.<br>관리자에게 이 이메일 주소를 알려 주세요.</p>
+      <button class="gbtn ghost" id="retryBtn">다시 확인</button>`;
+    document.getElementById('retryBtn').onclick=()=>location.reload();
+  }
+}
+function showApp(){
+  document.getElementById('gate').hidden=true;
+  document.getElementById('app').hidden=false;
+  document.getElementById('logoutBtn').hidden=false;
+  document.getElementById('adminBtn').hidden=!S.isAdmin;
+}
+async function login(){
+  const p=new GoogleAuthProvider();p.setCustomParameters({prompt:'select_account'});
+  try{await signInWithPopup(auth,p)}
+  catch(e){if(e.code==='auth/popup-blocked'||e.code==='auth/operation-not-supported-in-this-environment') signInWithRedirect(auth,p);else toast('로그인에 실패했습니다.')}
+}
+document.getElementById('logoutBtn').onclick=()=>signOut(auth).then(()=>location.reload());
+
+/* ---------- 직원 관리 (관리자만) ---------- */
+let delEmail=null;
+function renderAdmin(){
+  const list=(S.access.allowed||[]).slice().sort();
+  document.getElementById('adminList').innerHTML=list.length?list.map(e=>`<li><span>${esc(e)}</span>${
+    delEmail===e?`<span><button class="del solid" data-rm="${esc(e)}">삭제</button> <button data-cancel>취소</button></span>`
+               :`<button class="del" data-ask="${esc(e)}">삭제</button>`}</li>`).join('')
+    :'<li class="muted">아직 등록된 직원이 없습니다.</li>';
+}
+document.getElementById('adminBtn').onclick=()=>{delEmail=null;renderAdmin();document.getElementById('admin').hidden=false;document.getElementById('newEmail').focus()};
+document.getElementById('adminClose').onclick=()=>{document.getElementById('admin').hidden=true};
+document.getElementById('adminForm').addEventListener('submit',e=>{
+  e.preventDefault();const inp=document.getElementById('newEmail');
+  const v=inp.value.trim().toLowerCase();
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)){toast('이메일 형식을 확인해 주세요.');return}
+  setDoc(doc(fs,'config','access'),{allowed:arrayUnion(v)},{merge:true}).then(()=>toast('추가했습니다. 해당 직원이 로그인하면 바로 사용할 수 있습니다.')).catch(handleErr);
+  inp.value='';
+});
+document.getElementById('adminList').addEventListener('click',e=>{
+  const t=e.target;
+  if(t.dataset.ask){delEmail=t.dataset.ask;renderAdmin()}
+  else if('cancel' in t.dataset){delEmail=null;renderAdmin()}
+  else if(t.dataset.rm){const v=t.dataset.rm;delEmail=null;
+    setDoc(doc(fs,'config','access'),{allowed:arrayRemove(v)},{merge:true}).then(()=>toast('삭제했습니다.')).catch(handleErr)}
+});
+
+/* ---------- 실시간 구독 ---------- */
+const subs={};
+function subscribeItems(uid){
+  if(subs[uid]) return;
+  subs[uid]=onSnapshot(collection(fs,'todos',uid,'items'),{includeMetadataChanges:true},snap=>{
+    const m={};snap.forEach(d=>{m[d.id]={id:d.id,...d.data()}});
+    S.items[uid]=m;
+    if(uid===S.me && !snap.metadata.fromCache && !S.rolled){S.rolled=true;rollover()}
+    render();
+  },e=>console.error(e));
+}
+function start(u){
+  const timer=setTimeout(()=>setSync('wait','연결이 늦어지고 있습니다…'),10000);
+  setDoc(doc(fs,'members',u.uid),{name:u.displayName||u.email,email:(u.email||'').toLowerCase(),lastSeen:Date.now()},{merge:true}).catch(handleErr);
+  onSnapshot(collection(fs,'members'),{includeMetadataChanges:true},snap=>{
+    if(!snap.metadata.fromCache){clearTimeout(timer);setSync('ok','실시간 동기화 중')}
+    const ok=new Set([...(S.access.allowed||[]),...ADMIN_EMAILS]);
+    S.members=[];
+    snap.forEach(d=>{const v=d.data();S.names[d.id]=v.name||v.email||'이름 없음';if(ok.has((v.email||'').toLowerCase())) S.members.push(d.id)});
+    S.members.forEach(subscribeItems);subscribeItems(S.me);
+    render();
+  },e=>{clearTimeout(timer);setSync('off','연결 끊김');console.error(e)});
+  if(S.isAdmin) onSnapshot(doc(fs,'config','access'),s=>{S.access=s.exists()?s.data():{allowed:[]};renderAdmin();render()});
+}
+
+/* ---------- 시작 ---------- */
+let app,auth,fs;
+if(!firebaseConfig.apiKey||firebaseConfig.apiKey.startsWith('여기에')){showGate('config')}
+else{
+  app=initializeApp(firebaseConfig);auth=getAuth(app);fs=getFirestore(app);
+  getRedirectResult(auth).catch(()=>{});
+  onAuthStateChanged(auth,async u=>{
+    if(!u){setSync('off','로그인 필요');showGate('login');return}
+    const email=(u.email||'').toLowerCase();
+    S.me=u.uid;S.viewing=u.uid;S.local=false;S.isAdmin=ADMIN_EMAILS.includes(email);
+    try{const s=await getDoc(doc(fs,'config','access'));S.access=s.exists()?s.data():{allowed:[]}}
+    catch(e){S.access={allowed:[]}}
+    if(!S.isAdmin && !(S.access.allowed||[]).includes(email)){setSync('off','승인 대기');showGate('pending',email);return}
+    showApp();render();start(u);
+  });
+}
+</script>
+</body>
+</html>
