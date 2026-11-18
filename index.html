@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>todo</title>
+<title>teum-todo</title>
 <style>
 :root{
   --bg:#f6f5f2; --card:#fff; --ink:#1d1d1f; --sub:#6b6b70; --line:#e6e4df;
@@ -149,6 +149,27 @@ ul.list{list-style:none;margin:0;padding:0}
 .mfoot button{height:36px;padding:0 16px;border-radius:8px;border:1px solid var(--line)}
 .add-chip{border-style:dashed;color:var(--sub)}
 .mbox li small{color:var(--sub);margin-left:6px}
+.acts button.ico{width:30px;padding:0;display:grid;place-items:center}
+.acts button[data-act="del"]:hover{color:var(--danger);border-color:var(--danger)}
+.col .acts button.ico{width:24px}
+.item.editing .menu{margin-left:0}
+.menu.edit #editInput{flex:1 1 160px}
+.menu button.pri{background:var(--accent);color:#fff;border-color:var(--accent)}
+.title[data-dbl]{cursor:text}
+[data-drag]{cursor:grab}
+.dragging{opacity:.4}
+.drop{outline:2px dashed var(--accent);outline-offset:-2px;background:var(--accent-soft)!important}
+.ml li[data-drag]:hover{color:var(--accent)}
+form.add .xbtn{background:var(--card);color:var(--sub);border:1px solid var(--line);padding:0;width:36px;display:grid;place-items:center}
+.today-txt{white-space:nowrap}
+header{flex-wrap:nowrap}
+header>div:first-child{flex:0 0 auto}
+@media (max-width:620px){
+  header{gap:6px;align-items:center}
+  h1{font-size:18px}
+  #syncTxt{display:none}
+  .hbtn{margin-left:4px;padding:0 9px;height:30px}
+}
 #toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s;max-width:90vw}
 #toast.show{opacity:1}
 </style>
@@ -157,7 +178,7 @@ ul.list{list-style:none;margin:0;padding:0}
 <div class="wrap">
   <header>
     <div>
-      <h1>todo</h1>
+      <h1>teum-todo</h1>
       <div class="today-txt" id="todayTxt"></div>
     </div>
     <div class="sync"><span class="dot wait" id="dot"></span><span id="syncTxt">연결 중…</span><button class="hbtn" id="adminBtn" hidden>직원 관리</button><button class="hbtn" id="logoutBtn" hidden>로그아웃</button></div>
@@ -229,7 +250,7 @@ const S={
   items:{},            // uid -> {id: item}
   names:{},
   viewing:'local',view:'day',day:today(),
-  openMenu:null,confirmDel:null,editing:null,addingDay:null,
+  confirmDel:null,editing:null,addingDay:null,
   rolled:false,lastToday:today()
 };
 
@@ -290,32 +311,27 @@ function renderPeople(){
     return `<button class="chip ${uid===S.viewing?'on':''}" data-person="${esc(uid)}">${label}<small>${open}</small></button>`;
   }).join('')+(S.isAdmin?`<button class="chip add-chip" data-addperson>+ 직원 추가</button>`:'');
 }
-function itemHTML(it,compact){
+const PENCIL='<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
+const XICON='<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>';
+function itemHTML(it){
   const ed=editable();
-  const menuOpen=S.openMenu===it.id && ed;
-  let menu='';
-  if(menuOpen){
-    if(S.confirmDel===it.id){
-      menu=`<div class="menu">이 항목을 삭제할까요?
-        <button class="del solid" data-act="delyes">삭제</button><button data-act="delno">취소</button></div>`;
-    }else if(S.editing===it.id){
-      menu=`<div class="menu"><input type="text" id="editInput" value="${esc(it.title)}" maxlength="200">
-        <button data-act="editsave">저장</button><button data-act="close">취소</button></div>`;
-    }else{
-      menu=`<div class="menu">
-        <label>날짜 <input type="date" data-act="setdate" value="${esc(effDate(it))}"></label>
-        <button data-act="edit">내용 수정</button>
-        <button class="del" data-act="del">삭제</button>
-        <button data-act="close">닫기</button></div>`;
-    }
+  if(ed && S.editing===it.id){
+    return `<li class="item wrapable editing" data-id="${esc(it.id)}"><div class="menu edit">
+      <input type="text" id="editInput" value="${esc(it.title)}" maxlength="200">
+      <input type="date" id="editDate" value="${esc(effDate(it))}">
+      <button class="pri" data-act="editsave">저장</button><button data-act="close">취소</button></div></li>`;
   }
+  const confirm=(ed && S.confirmDel===it.id)?`<div class="menu">이 할 일을 삭제할까요?
+      <button class="del solid" data-act="delyes">삭제</button><button data-act="delno">취소</button></div>`:'';
   const acts=ed?`<div class="acts">
-      ${!it.done?`<button data-act="tomorrow" title="내일로 미루기">→<span class="tm-label"> 내일로</span></button>`:''}
-      <button class="more" data-act="more" title="더보기">⋯</button></div>`:'';
-  return `<li class="item wrapable ${it.done?'done':''}" data-id="${esc(it.id)}">
+      ${!it.done?`<button data-act="tomorrow" title="내일로 미루기">미루기</button>`:''}
+      <button class="ico" data-act="edit" title="수정" aria-label="수정">${PENCIL}</button>
+      <button class="ico" data-act="del" title="삭제" aria-label="삭제">${XICON}</button></div>`:'';
+  const drag=ed&&S.view==='week';
+  return `<li class="item wrapable ${it.done?'done':''}" data-id="${esc(it.id)}" ${drag?'draggable="true" data-drag="1"':''}>
     <button class="chk" data-act="toggle" ${ed?'':'disabled'} aria-label="완료 체크">✓</button>
-    <div class="txt"><span class="title">${esc(it.title)}</span>${badgeOf(it)}</div>
-    ${acts}${menu}</li>`;
+    <div class="txt"><span class="title" ${ed?'data-dbl="1" title="더블클릭해서 수정"':''}>${esc(it.title)}</span>${badgeOf(it)}</div>
+    ${acts}${confirm}</li>`;
 }
 function renderDay(){
   const uid=S.viewing,list=itemsOn(uid,S.day);
@@ -334,11 +350,11 @@ function renderWeek(){
   html+='<div class="week">';
   for(let i=0;i<7;i++){
     const d=addDays(ws,i),list=itemsOn(uid,d),done=list.filter(x=>x.done).length;
-    html+=`<div class="col ${d===t?'today':''}">
+    html+=`<div class="col ${d===t?'today':''}" ${ed?`data-dropday="${d}"`:''}>
       <h3 data-goday="${d}">${DOW[parse(d).getDay()]} ${fmtShort(d)}<span>${list.length?done+'/'+list.length:''}</span></h3>
       <ul class="list">${list.map(x=>itemHTML(x,true)).join('')}</ul>
       ${ed?(S.addingDay===d
-        ?`<form class="add" data-day="${d}"><input name="t" placeholder="할 일 입력" autocomplete="off" maxlength="200"><button>추가</button></form>`
+        ?`<form class="add" data-day="${d}"><input name="t" placeholder="할 일 입력" autocomplete="off" maxlength="200"><button>추가</button><button type="button" class="xbtn" data-canceladd aria-label="취소">${XICON}</button></form>`
         :`<button class="plus" data-addday="${d}">+ 추가</button>`):''}
     </div>`;
   }
@@ -358,9 +374,10 @@ function renderMonth(){
     const done=list.filter(x=>x.done).length;
     total+=list.length;doneAll+=done;
     const dow=dd.getDay();
-    const shown=list.slice(0,3).map(x=>`<li class="${x.done?'done':''}">${esc(x.title)}</li>`).join('');
+    const md=canEditList(uid);
+    const shown=list.slice(0,3).map(x=>`<li class="${x.done?'done':''}" ${md?`draggable="true" data-drag="1" data-id="${esc(x.id)}"`:''}>${esc(x.title)}</li>`).join('');
     const more=list.length>3?`<li class="more">+${list.length-3}개 더</li>`:'';
-    cells+=`<div class="mc ${inMonth?'':'out'} ${d===t?'today':''}" ${inMonth?`data-goday="${d}"`:''}>
+    cells+=`<div class="mc ${inMonth?'':'out'} ${d===t?'today':''}" ${inMonth?`data-goday="${d}"`:''} ${inMonth&&canEditList(uid)?`data-dropday="${d}"`:''}>
       <div class="mh"><span class="dn ${dow===0?'sun':dow===6?'sat':''}">${dd.getDate()}</span>
         ${list.length?`<span class="cnt ${done===list.length?'all':''}">${done}/${list.length}</span>`:''}</div>
       ${list.length?`<ul class="ml">${shown}${more}</ul>`:''}
@@ -370,7 +387,7 @@ function renderMonth(){
   return `${uid!==S.me?`<div class="owner-line">${esc(nameOf(uid))}님의 월간 할 일 · ${canEditList(uid)?'관리자 편집':'보기 전용'}</div>`:''}
     <div class="prog"><span>이번 달 ${doneAll}/${total} 완료</span><div class="track"><div class="fill" style="width:${pct}%"></div></div><span>${pct}%</span></div>
     <div class="month">${['월','화','수','목','금','토','일'].map(w=>`<div class="mw">${w}</div>`).join('')}${cells}</div>
-    <div class="hint">날짜를 누르면 그날 할 일을 보고 추가·수정할 수 있습니다.</div>`;
+    <div class="hint">날짜를 누르면 그날 할 일을 보고 추가·수정할 수 있습니다. PC에서는 할 일을 다른 날짜로 끌어다 놓을 수 있습니다.</div>`;
 }
 function render(){
   document.getElementById('todayTxt').textContent='오늘 '+fmtDay(today());
@@ -417,8 +434,9 @@ main.addEventListener('submit',e=>{
   document.querySelector(`form.add[data-day="${f.dataset.day}"] input`)?.focus();
 });
 main.addEventListener('click',e=>{
+  if(e.target.closest('[data-canceladd]')){S.addingDay=null;render();return}
   const goday=e.target.closest('[data-goday]');
-  if(goday){S.day=goday.dataset.goday;S.view='day';S.openMenu=null;render();return}
+  if(goday && !S.justDropped){S.day=goday.dataset.goday;S.view='day';render();return}
   const addday=e.target.closest('[data-addday]');
   if(addday){S.addingDay=addday.dataset.addday;render();document.querySelector(`form.add[data-day="${S.addingDay}"] input`)?.focus();return}
   const btn=e.target.closest('[data-act]');if(!btn||btn.tagName==='INPUT') return;
@@ -426,26 +444,66 @@ main.addEventListener('click',e=>{
   const it=S.items[S.viewing]?.[id];if(!it) return;
   switch(btn.dataset.act){
     case 'toggle':ops.update(id,it.done?{done:false,doneAt:null}:{done:true,doneAt:Date.now(),date:effDate(it)});break;
-    case 'tomorrow':ops.update(id,{date:addDays(effDate(it),1)});toast('내일로 미뤘습니다.');break;
-    case 'more':S.openMenu=S.openMenu===id?null:id;S.confirmDel=null;S.editing=null;render();break;
-    case 'close':S.openMenu=null;S.confirmDel=null;S.editing=null;render();break;
-    case 'del':S.confirmDel=id;render();break;
+    case 'tomorrow':ops.update(id,{date:addDays(effDate(it),1)});toast('하루 미뤘습니다.');break;
+    case 'close':S.confirmDel=null;S.editing=null;render();break;
+    case 'del':S.confirmDel=id;S.editing=null;render();break;
     case 'delno':S.confirmDel=null;render();break;
-    case 'delyes':S.openMenu=null;S.confirmDel=null;ops.remove(id);toast('삭제했습니다.');break;
-    case 'edit':S.editing=id;render();break;
-    case 'editsave':{const v=document.getElementById('editInput').value.trim();if(v&&v!==it.title) ops.update(id,{title:v});S.editing=null;S.openMenu=null;render();break}
+    case 'delyes':S.confirmDel=null;ops.remove(id);toast('삭제했습니다.');break;
+    case 'edit':S.editing=id;S.confirmDel=null;render();break;
+    case 'editsave':saveEdit(it);break;
   }
 });
-main.addEventListener('change',e=>{
-  if(e.target.dataset.act!=='setdate'||!e.target.value) return;
-  const id=e.target.closest('.item').dataset.id;
-  ops.update(id,{date:e.target.value});S.openMenu=null;toast(fmtDay(e.target.value)+'(으)로 옮겼습니다.');
+function saveEdit(it){
+  const v=document.getElementById('editInput').value.trim();
+  const d=document.getElementById('editDate').value;
+  const patch={};
+  if(v&&v!==it.title) patch.title=v;
+  if(d&&d!==effDate(it)) patch.date=d;
+  if(Object.keys(patch).length) ops.update(it.id,patch);
+  if(patch.date) toast(fmtDay(d)+'(으)로 옮겼습니다.');
+  S.editing=null;render();
+}
+// 내용 더블클릭 → 수정
+main.addEventListener('dblclick',e=>{
+  const t=e.target.closest('[data-dbl]');if(!t||!editable()) return;
+  S.editing=t.closest('.item').dataset.id;S.confirmDel=null;render();
 });
 main.addEventListener('keydown',e=>{
-  if(e.target.id==='editInput'){
-    if(e.key==='Enter'){e.preventDefault();main.querySelector('[data-act="editsave"]').click()}
-    if(e.key==='Escape'){S.editing=null;S.openMenu=null;render()}
+  if(e.target.id==='editInput'||e.target.id==='editDate'){
+    if(e.key==='Enter'){e.preventDefault();const it=S.items[S.viewing]?.[S.editing];if(it) saveEdit(it)}
+    if(e.key==='Escape'){S.editing=null;render()}
   }
+  if(e.key==='Escape' && e.target.name==='t' && S.addingDay){S.addingDay=null;render()}
+});
+// 바깥을 누르면 입력칸·수정·삭제확인 닫기
+document.addEventListener('click',e=>{
+  let ch=false;
+  if(S.addingDay && !e.target.closest(`form.add[data-day="${S.addingDay}"]`) && !e.target.closest('[data-addday]')){S.addingDay=null;ch=true}
+  if(S.editing && !e.target.closest(`.item[data-id="${S.editing}"]`)){S.editing=null;ch=true}
+  if(S.confirmDel && !e.target.closest(`.item[data-id="${S.confirmDel}"]`)){S.confirmDel=null;ch=true}
+  if(ch) render();
+});
+// 끌어다 놓아 날짜 변경 (주간·월간, PC)
+main.addEventListener('dragstart',e=>{
+  const el=e.target.closest('[data-drag]');if(!el) return;
+  S.dragId=el.dataset.id;e.dataTransfer.effectAllowed='move';
+  try{e.dataTransfer.setData('text/plain',S.dragId)}catch(_){}
+  el.classList.add('dragging');
+});
+main.addEventListener('dragend',()=>{S.dragId=null;document.querySelectorAll('.drop,.dragging').forEach(x=>x.classList.remove('drop','dragging'))});
+main.addEventListener('dragover',e=>{
+  const t=e.target.closest('[data-dropday]');if(!t||!S.dragId) return;
+  e.preventDefault();e.dataTransfer.dropEffect='move';
+  document.querySelectorAll('.drop').forEach(x=>{if(x!==t) x.classList.remove('drop')});t.classList.add('drop');
+});
+main.addEventListener('drop',e=>{
+  const t=e.target.closest('[data-dropday]');if(!t||!S.dragId) return;
+  e.preventDefault();
+  const id=S.dragId,d=t.dataset.dropday;S.dragId=null;
+  S.justDropped=true;setTimeout(()=>S.justDropped=false,300);
+  const it=S.items[S.viewing]?.[id];
+  if(it && effDate(it)!==d){ops.update(id,{date:d});toast(fmtDay(d)+'(으)로 옮겼습니다.')}
+  render();
 });
 
 /* 자정이 지나거나 다시 화면을 열면 날짜 갱신 + 자동 넘김 */
@@ -465,7 +523,7 @@ function showGate(kind,extra){
   if(kind==='config'){
     g.innerHTML=`<h2>설정이 필요합니다</h2><p>index.html 상단의 <b>firebaseConfig</b>와 <b>ADMIN_EMAILS</b>를 채워 주세요.</p>`;
   }else if(kind==='login'){
-    g.innerHTML=`<h2>todo</h2><p>회사 직원만 사용할 수 있습니다.<br>구글 계정으로 로그인해 주세요.</p>
+    g.innerHTML=`<h2>teum-todo</h2><p>회사 직원만 사용할 수 있습니다.<br>구글 계정으로 로그인해 주세요.</p>
       <button class="gbtn" id="loginBtn">Google 계정으로 로그인</button>
       <p class="small">카카오톡 안에서 열면 로그인이 안 될 수 있습니다. 크롬·사파리에서 열어 주세요.</p>`;
     document.getElementById('loginBtn').onclick=login;
