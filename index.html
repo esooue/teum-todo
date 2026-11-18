@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>틈 업무 체크리스트</title>
+<title>todo</title>
 <style>
 :root{
   --bg:#f6f5f2; --card:#fff; --ink:#1d1d1f; --sub:#6b6b70; --line:#e6e4df;
@@ -147,6 +147,8 @@ ul.list{list-style:none;margin:0;padding:0}
 .mbox .del.solid{background:var(--danger);color:#fff}
 .mfoot{text-align:right;margin-top:14px}
 .mfoot button{height:36px;padding:0 16px;border-radius:8px;border:1px solid var(--line)}
+.add-chip{border-style:dashed;color:var(--sub)}
+.mbox li small{color:var(--sub);margin-left:6px}
 #toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s;max-width:90vw}
 #toast.show{opacity:1}
 </style>
@@ -155,7 +157,7 @@ ul.list{list-style:none;margin:0;padding:0}
 <div class="wrap">
   <header>
     <div>
-      <h1>틈 업무 체크리스트</h1>
+      <h1>todo</h1>
       <div class="today-txt" id="todayTxt"></div>
     </div>
     <div class="sync"><span class="dot wait" id="dot"></span><span id="syncTxt">연결 중…</span><button class="hbtn" id="adminBtn" hidden>직원 관리</button><button class="hbtn" id="logoutBtn" hidden>로그아웃</button></div>
@@ -182,9 +184,9 @@ ul.list{list-style:none;margin:0;padding:0}
 </div>
 <div id="toast"></div>
 <div class="modal" id="admin" hidden><div class="mbox">
-  <h3>직원 관리</h3>
-  <p class="desc">여기 등록한 구글 이메일만 로그인해서 사용할 수 있습니다.</p>
-  <form class="add" id="adminForm"><input id="newEmail" type="email" placeholder="직원 구글 이메일" autocomplete="off"><button>추가</button></form>
+  <h3>직원 추가·관리</h3>
+  <p class="desc">직원을 추가하면 그 직원의 할 일 목록이 바로 생깁니다. 대표님이 대신 관리할 수 있고, 직원이 같은 구글 이메일로 로그인하면 그 목록을 함께 씁니다.</p>
+  <form class="add" id="adminForm" style="flex-wrap:wrap"><input id="newName" placeholder="이름 (예: 김대리)" autocomplete="off" maxlength="30" style="flex:1 1 120px"><input id="newEmail" type="email" placeholder="구글 이메일" autocomplete="off" style="flex:2 1 180px"><button>추가</button></form>
   <ul id="adminList"></ul>
   <div class="mfoot"><button id="adminClose">닫기</button></div>
 </div></div>
@@ -204,7 +206,7 @@ const ADMIN_EMAILS = ["esooue@gmail.com"].map(e=>e.toLowerCase());
 /* ================================================================ */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, onAuthStateChanged, signOut } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-import { getFirestore, doc, collection, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot, arrayUnion, arrayRemove } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+import { getFirestore, doc, collection, getDoc, getDocs, setDoc, updateDoc, deleteDoc, onSnapshot, arrayUnion, arrayRemove } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 /* ---------- 날짜 유틸 ---------- */
 const pad=n=>String(n).padStart(2,'0');
@@ -222,7 +224,8 @@ const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&
 /* ---------- 상태 ---------- */
 const S={
   db:null,user:null,me:'local',local:true,readOnly:false,
-  members:[],          // uid 목록
+  members:[],          // 이메일 목록
+  rolledSet:new Set(),
   items:{},            // uid -> {id: item}
   names:{},
   viewing:'local',view:'day',day:today(),
@@ -247,7 +250,8 @@ function badgeOf(it){
   const n=diffDays(effDate(it),it.origDate);
   return n>0?`<span class="badge">+${n}일 밀림</span>`:'';
 }
-const editable=()=>S.viewing===S.me && !S.readOnly;
+const canEditList=uid=>!S.readOnly && (uid===S.me || S.isAdmin);
+const editable=()=>canEditList(S.viewing);
 
 /* ---------- 쓰기 ---------- */
 function handleErr(e){
@@ -256,7 +260,7 @@ function handleErr(e){
   else toast('저장에 실패했습니다. 인터넷 연결을 확인해 주세요.');
 }
 function newId(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7)}
-const itemRef=id=>doc(fs,'todos',S.me,'items',id);
+const itemRef=(id,uid=S.viewing)=>doc(fs,'todos',uid,'items',id);
 const ops={
   add(title,date){
     title=title.trim();if(!title||S.readOnly) return;
@@ -267,10 +271,10 @@ const ops={
 };
 
 /* 지난 날짜의 미완료 항목을 오늘로 옮김 (본인 항목만, 바뀔 때만 저장) */
-function rollover(){
-  if(S.readOnly) return;
+function rollover(uid){
   const t=today();
-  itemsOf(S.me).forEach(it=>{if(!it.done && it.date<t) ops.update(it.id,{date:t})});
+  const list=uid?[uid]:[S.me,...S.members].filter(canEditList);
+  list.forEach(k=>itemsOf(k).forEach(it=>{if(!it.done && it.date<t) updateDoc(itemRef(it.id,k),{date:t}).catch(handleErr)}));
 }
 
 /* ---------- 렌더링 ---------- */
@@ -284,7 +288,7 @@ function renderPeople(){
     const open=itemsOn(uid,today()).filter(i=>!i.done).length;
     const label=uid===S.me?`나${S.local?'':' · '+esc(nameOf(uid))}`:esc(nameOf(uid));
     return `<button class="chip ${uid===S.viewing?'on':''}" data-person="${esc(uid)}">${label}<small>${open}</small></button>`;
-  }).join('');
+  }).join('')+(S.isAdmin?`<button class="chip add-chip" data-addperson>+ 직원 추가</button>`:'');
 }
 function itemHTML(it,compact){
   const ed=editable();
@@ -318,7 +322,7 @@ function renderDay(){
   const done=list.filter(i=>i.done).length,pct=list.length?Math.round(done/list.length*100):0;
   const ed=editable();
   return `<section class="card">
-    ${uid!==S.me?`<div class="owner-line">${esc(nameOf(uid))}님의 할 일 · 보기 전용</div>`:''}
+    ${uid!==S.me?`<div class="owner-line">${esc(nameOf(uid))}님의 할 일 · ${canEditList(uid)?'관리자 편집':'보기 전용'}</div>`:''}
     <div class="prog"><span>${done}/${list.length} 완료</span><div class="track"><div class="fill" style="width:${pct}%"></div></div><span>${pct}%</span></div>
     ${ed?`<form class="add" data-day="${S.day}"><input name="t" placeholder="할 일을 입력하고 Enter" autocomplete="off" maxlength="200"><button>추가</button></form>`:''}
     ${list.length?`<ul class="list">${list.map(i=>itemHTML(i,false)).join('')}</ul>`:`<div class="empty">${S.day===today()?'오늘':'이 날'} 등록된 할 일이 없습니다.</div>`}
@@ -326,7 +330,7 @@ function renderDay(){
 }
 function renderWeek(){
   const ws=weekStart(S.day),t=today(),ed=editable(),uid=S.viewing;
-  let html=uid!==S.me?`<div class="owner-line">${esc(nameOf(uid))}님의 주간 할 일 · 보기 전용</div>`:'';
+  let html=uid!==S.me?`<div class="owner-line">${esc(nameOf(uid))}님의 주간 할 일 · ${canEditList(uid)?'관리자 편집':'보기 전용'}</div>`:'';
   html+='<div class="week">';
   for(let i=0;i<7;i++){
     const d=addDays(ws,i),list=itemsOn(uid,d),done=list.filter(x=>x.done).length;
@@ -363,7 +367,7 @@ function renderMonth(){
     </div>`;
   }
   const pct=total?Math.round(doneAll/total*100):0;
-  return `${uid!==S.me?`<div class="owner-line">${esc(nameOf(uid))}님의 월간 할 일 · 보기 전용</div>`:''}
+  return `${uid!==S.me?`<div class="owner-line">${esc(nameOf(uid))}님의 월간 할 일 · ${canEditList(uid)?'관리자 편집':'보기 전용'}</div>`:''}
     <div class="prog"><span>이번 달 ${doneAll}/${total} 완료</span><div class="track"><div class="fill" style="width:${pct}%"></div></div><span>${pct}%</span></div>
     <div class="month">${['월','화','수','목','금','토','일'].map(w=>`<div class="mw">${w}</div>`).join('')}${cells}</div>
     <div class="hint">날짜를 누르면 그날 할 일을 보고 추가·수정할 수 있습니다.</div>`;
@@ -400,6 +404,7 @@ document.getElementById('prev').onclick=()=>step(-1);
 document.getElementById('next').onclick=()=>step(1);
 document.getElementById('goToday').onclick=()=>{S.day=today();S.openMenu=null;render()};
 document.getElementById('people').addEventListener('click',e=>{
+  if(e.target.closest('[data-addperson]')){openAdmin();return}
   const b=e.target.closest('[data-person]');if(!b) return;
   S.viewing=b.dataset.person;S.openMenu=null;S.addingDay=null;render();
 });
@@ -418,7 +423,7 @@ main.addEventListener('click',e=>{
   if(addday){S.addingDay=addday.dataset.addday;render();document.querySelector(`form.add[data-day="${S.addingDay}"] input`)?.focus();return}
   const btn=e.target.closest('[data-act]');if(!btn||btn.tagName==='INPUT') return;
   const li=btn.closest('.item');const id=li&&li.dataset.id;if(!id||!editable()) return;
-  const it=S.items[S.me]?.[id];if(!it) return;
+  const it=S.items[S.viewing]?.[id];if(!it) return;
   switch(btn.dataset.act){
     case 'toggle':ops.update(id,it.done?{done:false,doneAt:null}:{done:true,doneAt:Date.now(),date:effDate(it)});break;
     case 'tomorrow':ops.update(id,{date:addDays(effDate(it),1)});toast('내일로 미뤘습니다.');break;
@@ -460,7 +465,7 @@ function showGate(kind,extra){
   if(kind==='config'){
     g.innerHTML=`<h2>설정이 필요합니다</h2><p>index.html 상단의 <b>firebaseConfig</b>와 <b>ADMIN_EMAILS</b>를 채워 주세요.</p>`;
   }else if(kind==='login'){
-    g.innerHTML=`<h2>틈 업무 체크리스트</h2><p>회사 직원만 사용할 수 있습니다.<br>구글 계정으로 로그인해 주세요.</p>
+    g.innerHTML=`<h2>todo</h2><p>회사 직원만 사용할 수 있습니다.<br>구글 계정으로 로그인해 주세요.</p>
       <button class="gbtn" id="loginBtn">Google 계정으로 로그인</button>
       <p class="small">카카오톡 안에서 열면 로그인이 안 될 수 있습니다. 크롬·사파리에서 열어 주세요.</p>`;
     document.getElementById('loginBtn').onclick=login;
@@ -483,30 +488,38 @@ async function login(){
 }
 document.getElementById('logoutBtn').onclick=()=>signOut(auth).then(()=>location.reload());
 
-/* ---------- 직원 관리 (관리자만) ---------- */
+/* ---------- 직원 추가·관리 (관리자만) ---------- */
 let delEmail=null;
+function openAdmin(){delEmail=null;renderAdmin();document.getElementById('admin').hidden=false;document.getElementById('newName').focus()}
 function renderAdmin(){
-  const list=(S.access.allowed||[]).slice().sort();
-  document.getElementById('adminList').innerHTML=list.length?list.map(e=>`<li><span>${esc(e)}</span>${
-    delEmail===e?`<span><button class="del solid" data-rm="${esc(e)}">삭제</button> <button data-cancel>취소</button></span>`
-               :`<button class="del" data-ask="${esc(e)}">삭제</button>`}</li>`).join('')
+  const list=(S.access.allowed||[]).slice().sort((x,y)=>nameOf(x).localeCompare(nameOf(y)));
+  document.getElementById('adminList').innerHTML=list.length?list.map(e=>`<li><span>${esc(S.names[e]||'')}<small>${esc(e)}</small></span>${
+    delEmail===e?`<span><button class="del solid" data-rm="${esc(e)}">접속 해제</button> <button data-cancel>취소</button></span>`
+               :`<button class="del" data-ask="${esc(e)}">접속 해제</button>`}</li>`).join('')
     :'<li class="muted">아직 등록된 직원이 없습니다.</li>';
 }
-document.getElementById('adminBtn').onclick=()=>{delEmail=null;renderAdmin();document.getElementById('admin').hidden=false;document.getElementById('newEmail').focus()};
+document.getElementById('adminBtn').onclick=openAdmin;
 document.getElementById('adminClose').onclick=()=>{document.getElementById('admin').hidden=true};
-document.getElementById('adminForm').addEventListener('submit',e=>{
-  e.preventDefault();const inp=document.getElementById('newEmail');
-  const v=inp.value.trim().toLowerCase();
-  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)){toast('이메일 형식을 확인해 주세요.');return}
-  setDoc(doc(fs,'config','access'),{allowed:arrayUnion(v)},{merge:true}).then(()=>toast('추가했습니다. 해당 직원이 로그인하면 바로 사용할 수 있습니다.')).catch(handleErr);
-  inp.value='';
+document.getElementById('adminForm').addEventListener('submit',async e=>{
+  e.preventDefault();
+  const ni=document.getElementById('newName'),ei=document.getElementById('newEmail');
+  const name=ni.value.trim(),v=ei.value.trim().toLowerCase();
+  if(!name){toast('이름을 입력해 주세요.');ni.focus();return}
+  if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)){toast('이메일 형식을 확인해 주세요.');ei.focus();return}
+  try{
+    await setDoc(doc(fs,'members',v),{name,email:v},{merge:true});
+    await setDoc(doc(fs,'config','access'),{allowed:arrayUnion(v)},{merge:true});
+    toast(`${name}님 목록을 만들었습니다.`);
+    ni.value='';ei.value='';ni.focus();
+    S.viewing=v;render();
+  }catch(err){handleErr(err)}
 });
 document.getElementById('adminList').addEventListener('click',e=>{
   const t=e.target;
   if(t.dataset.ask){delEmail=t.dataset.ask;renderAdmin()}
   else if('cancel' in t.dataset){delEmail=null;renderAdmin()}
   else if(t.dataset.rm){const v=t.dataset.rm;delEmail=null;
-    setDoc(doc(fs,'config','access'),{allowed:arrayRemove(v)},{merge:true}).then(()=>toast('삭제했습니다.')).catch(handleErr)}
+    setDoc(doc(fs,'config','access'),{allowed:arrayRemove(v)},{merge:true}).then(()=>toast('접속을 해제했습니다. 할 일 기록은 남아 있습니다.')).catch(handleErr)}
 });
 
 /* ---------- 실시간 구독 ---------- */
@@ -516,20 +529,32 @@ function subscribeItems(uid){
   subs[uid]=onSnapshot(collection(fs,'todos',uid,'items'),{includeMetadataChanges:true},snap=>{
     const m={};snap.forEach(d=>{m[d.id]={id:d.id,...d.data()}});
     S.items[uid]=m;
-    if(uid===S.me && !snap.metadata.fromCache && !S.rolled){S.rolled=true;rollover()}
+    if(canEditList(uid) && !snap.metadata.fromCache && !S.rolledSet.has(uid)){S.rolledSet.add(uid);rollover(uid)}
     render();
   },e=>console.error(e));
 }
-function start(u){
+async function migrateOld(u){
+  // 예전 버전(uid 기준)으로 저장된 할 일을 이메일 기준 목록으로 옮김
+  try{
+    const old=await getDocs(collection(fs,'todos',u.uid,'items'));
+    for(const d of old.docs){await setDoc(doc(fs,'todos',S.me,'items',d.id),d.data());await deleteDoc(d.ref)}
+    if(S.isAdmin) await deleteDoc(doc(fs,'members',u.uid)).catch(()=>{});
+  }catch(_){}
+}
+async function start(u){
   const timer=setTimeout(()=>setSync('wait','연결이 늦어지고 있습니다…'),10000);
-  setDoc(doc(fs,'members',u.uid),{name:u.displayName||u.email,email:(u.email||'').toLowerCase(),lastSeen:Date.now()},{merge:true}).catch(handleErr);
+  try{
+    const ref=doc(fs,'members',S.me);const m=await getDoc(ref);
+    if(!m.exists()||!m.data().name) await setDoc(ref,{name:u.displayName||S.me,email:S.me},{merge:true});
+  }catch(e){handleErr(e)}
+  await migrateOld(u);
   onSnapshot(collection(fs,'members'),{includeMetadataChanges:true},snap=>{
     if(!snap.metadata.fromCache){clearTimeout(timer);setSync('ok','실시간 동기화 중')}
     const ok=new Set([...(S.access.allowed||[]),...ADMIN_EMAILS]);
     S.members=[];
-    snap.forEach(d=>{const v=d.data();S.names[d.id]=v.name||v.email||'이름 없음';if(ok.has((v.email||'').toLowerCase())) S.members.push(d.id)});
+    snap.forEach(d=>{const v=d.data();S.names[d.id]=v.name||d.id;if(ok.has(d.id)) S.members.push(d.id)});
     S.members.forEach(subscribeItems);subscribeItems(S.me);
-    render();
+    renderAdmin();render();
   },e=>{clearTimeout(timer);setSync('off','연결 끊김');console.error(e)});
   if(S.isAdmin) onSnapshot(doc(fs,'config','access'),s=>{S.access=s.exists()?s.data():{allowed:[]};renderAdmin();render()});
 }
@@ -543,7 +568,7 @@ else{
   onAuthStateChanged(auth,async u=>{
     if(!u){setSync('off','로그인 필요');showGate('login');return}
     const email=(u.email||'').toLowerCase();
-    S.me=u.uid;S.viewing=u.uid;S.local=false;S.isAdmin=ADMIN_EMAILS.includes(email);
+    S.me=email;S.viewing=email;S.local=false;S.isAdmin=ADMIN_EMAILS.includes(email);
     try{const s=await getDoc(doc(fs,'config','access'));S.access=s.exists()?s.data():{allowed:[]}}
     catch(e){S.access={allowed:[]}}
     if(!S.isAdmin && !(S.access.allowed||[]).includes(email)){setSync('off','승인 대기');showGate('pending',email);return}
