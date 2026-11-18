@@ -170,6 +170,8 @@ header>div:first-child{flex:0 0 auto}
   #syncTxt{display:none}
   .hbtn{margin-left:4px;padding:0 9px;height:30px}
 }
+[data-drag]{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+.dragghost{position:fixed;z-index:50;pointer-events:none;background:var(--card);border:1px solid var(--accent);border-radius:8px;padding:6px 10px;font-size:13px;box-shadow:0 6px 18px rgba(0,0,0,.25);max-width:70vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transform:translate(-50%,-120%)}
 #toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s;max-width:90vw}
 #toast.show{opacity:1}
 </style>
@@ -260,7 +262,7 @@ function setSync(kind,txt){const d=document.getElementById('dot');d.className='d
 function setBanner(html){document.getElementById('banner').innerHTML=html?`<div class="banner">${html}</div>`:''}
 
 /* ---------- 할 일 계산 ---------- */
-function effDate(it){return (!it.done && it.date<today())?today():it.date}
+function effDate(it){return (!it.done && !it.stay && it.date<today())?today():it.date}
 function itemsOf(uid){return Object.values(S.items[uid]||{})}
 function itemsOn(uid,day){
   return itemsOf(uid).filter(it=>effDate(it)===day)
@@ -295,7 +297,7 @@ const ops={
 function rollover(uid){
   const t=today();
   const list=uid?[uid]:[S.me,...S.members].filter(canEditList);
-  list.forEach(k=>itemsOf(k).forEach(it=>{if(!it.done && it.date<t) updateDoc(itemRef(it.id,k),{date:t}).catch(handleErr)}));
+  list.forEach(k=>itemsOf(k).forEach(it=>{if(!it.done && !it.stay && it.date<t) updateDoc(itemRef(it.id,k),{date:t}).catch(handleErr)}));
 }
 
 /* ---------- 렌더링 ---------- */
@@ -312,19 +314,19 @@ function renderPeople(){
   }).join('')+(S.isAdmin?`<button class="chip add-chip" data-addperson>+ 직원 추가</button>`:'');
 }
 const PENCIL='<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
+const ARROW='<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>';
 const XICON='<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M18 6 6 18M6 6l12 12"/></svg>';
 function itemHTML(it){
   const ed=editable();
   if(ed && S.editing===it.id){
     return `<li class="item wrapable editing" data-id="${esc(it.id)}"><div class="menu edit">
       <input type="text" id="editInput" value="${esc(it.title)}" maxlength="200">
-      <input type="date" id="editDate" value="${esc(effDate(it))}">
       <button class="pri" data-act="editsave">저장</button><button data-act="close">취소</button></div></li>`;
   }
   const confirm=(ed && S.confirmDel===it.id)?`<div class="menu">이 할 일을 삭제할까요?
       <button class="del solid" data-act="delyes">삭제</button><button data-act="delno">취소</button></div>`:'';
   const acts=ed?`<div class="acts">
-      ${!it.done?`<button data-act="tomorrow" title="내일로 미루기">미루기</button>`:''}
+      ${!it.done?`<button class="ico" data-act="tomorrow" title="하루 미루기" aria-label="하루 미루기">${ARROW}</button>`:''}
       <button class="ico" data-act="edit" title="수정" aria-label="수정">${PENCIL}</button>
       <button class="ico" data-act="del" title="삭제" aria-label="삭제">${XICON}</button></div>`:'';
   const drag=ed&&S.view==='week';
@@ -354,11 +356,11 @@ function renderWeek(){
       <h3 data-goday="${d}">${DOW[parse(d).getDay()]} ${fmtShort(d)}<span>${list.length?done+'/'+list.length:''}</span></h3>
       <ul class="list">${list.map(x=>itemHTML(x,true)).join('')}</ul>
       ${ed?(S.addingDay===d
-        ?`<form class="add" data-day="${d}"><input name="t" placeholder="할 일 입력" autocomplete="off" maxlength="200"><button>추가</button><button type="button" class="xbtn" data-canceladd aria-label="취소">${XICON}</button></form>`
+        ?`<form class="add" data-day="${d}"><input name="t" placeholder="할 일 입력" autocomplete="off" maxlength="200"><button>추가</button></form>`
         :`<button class="plus" data-addday="${d}">+ 추가</button>`):''}
     </div>`;
   }
-  return html+'</div>';
+  return html+'</div>'+(ed?'<div class="hint">할 일을 끌어서(휴대폰은 꾹 누른 채로) 다른 날짜로 옮길 수 있습니다.</div>':'');
 }
 function renderMonth(){
   const uid=S.viewing,t=today(),d0=parse(S.day);
@@ -375,8 +377,8 @@ function renderMonth(){
     total+=list.length;doneAll+=done;
     const dow=dd.getDay();
     const md=canEditList(uid);
-    const shown=list.slice(0,3).map(x=>`<li class="${x.done?'done':''}" ${md?`draggable="true" data-drag="1" data-id="${esc(x.id)}"`:''}>${esc(x.title)}</li>`).join('');
-    const more=list.length>3?`<li class="more">+${list.length-3}개 더</li>`:'';
+    const shown=list.map(x=>`<li class="${x.done?'done':''}" ${md?`draggable="true" data-drag="1" data-id="${esc(x.id)}"`:''}>${esc(x.title)}</li>`).join('');
+    const more='';
     cells+=`<div class="mc ${inMonth?'':'out'} ${d===t?'today':''}" ${inMonth?`data-goday="${d}"`:''} ${inMonth&&canEditList(uid)?`data-dropday="${d}"`:''}>
       <div class="mh"><span class="dn ${dow===0?'sun':dow===6?'sat':''}">${dd.getDate()}</span>
         ${list.length?`<span class="cnt ${done===list.length?'all':''}">${done}/${list.length}</span>`:''}</div>
@@ -444,7 +446,7 @@ main.addEventListener('click',e=>{
   const it=S.items[S.viewing]?.[id];if(!it) return;
   switch(btn.dataset.act){
     case 'toggle':ops.update(id,it.done?{done:false,doneAt:null}:{done:true,doneAt:Date.now(),date:effDate(it)});break;
-    case 'tomorrow':ops.update(id,{date:addDays(effDate(it),1)});toast('하루 미뤘습니다.');break;
+    case 'tomorrow':{const d=addDays(effDate(it),1);ops.update(id,{date:d,origDate:d,stay:false});toast('하루 미뤘습니다.');break}
     case 'close':S.confirmDel=null;S.editing=null;render();break;
     case 'del':S.confirmDel=id;S.editing=null;render();break;
     case 'delno':S.confirmDel=null;render();break;
@@ -453,14 +455,14 @@ main.addEventListener('click',e=>{
     case 'editsave':saveEdit(it);break;
   }
 });
+function moveTo(id,d){
+  const it=S.items[S.viewing]?.[id];if(!it||effDate(it)===d) return;
+  ops.update(id,{date:d,origDate:d,stay:d<today()});
+  toast(fmtDay(d)+'(으)로 옮겼습니다.');
+}
 function saveEdit(it){
   const v=document.getElementById('editInput').value.trim();
-  const d=document.getElementById('editDate').value;
-  const patch={};
-  if(v&&v!==it.title) patch.title=v;
-  if(d&&d!==effDate(it)) patch.date=d;
-  if(Object.keys(patch).length) ops.update(it.id,patch);
-  if(patch.date) toast(fmtDay(d)+'(으)로 옮겼습니다.');
+  if(v&&v!==it.title) ops.update(it.id,{title:v});
   S.editing=null;render();
 }
 // 내용 더블클릭 → 수정
@@ -469,7 +471,7 @@ main.addEventListener('dblclick',e=>{
   S.editing=t.closest('.item').dataset.id;S.confirmDel=null;render();
 });
 main.addEventListener('keydown',e=>{
-  if(e.target.id==='editInput'||e.target.id==='editDate'){
+  if(e.target.id==='editInput'){
     if(e.key==='Enter'){e.preventDefault();const it=S.items[S.viewing]?.[S.editing];if(it) saveEdit(it)}
     if(e.key==='Escape'){S.editing=null;render()}
   }
@@ -501,10 +503,58 @@ main.addEventListener('drop',e=>{
   e.preventDefault();
   const id=S.dragId,d=t.dataset.dropday;S.dragId=null;
   S.justDropped=true;setTimeout(()=>S.justDropped=false,300);
-  const it=S.items[S.viewing]?.[id];
-  if(it && effDate(it)!==d){ops.update(id,{date:d});toast(fmtDay(d)+'(으)로 옮겼습니다.')}
-  render();
+  moveTo(id,d);render();
 });
+
+// 휴대폰: 꾹 눌러서 끌어다 놓기
+let touch=null,ghost=null;
+function endTouch(){
+  if(touch) clearTimeout(touch.timer);
+  ghost?.remove();ghost=null;
+  document.querySelectorAll('.drop,.dragging').forEach(x=>x.classList.remove('drop','dragging'));
+  touch=null;
+}
+main.addEventListener('touchstart',e=>{
+  const el=e.target.closest('[data-drag]');
+  if(!el||e.touches.length>1||e.target.closest('button,input')) return;
+  const t=e.touches[0];
+  touch={el,id:el.dataset.id,x:t.clientX,y:t.clientY,active:false};
+  touch.timer=setTimeout(()=>{
+    if(!touch) return;
+    touch.active=true;el.classList.add('dragging');
+    try{navigator.vibrate&&navigator.vibrate(15)}catch(_){}
+    ghost=document.createElement('div');ghost.className='dragghost';
+    ghost.textContent=(el.querySelector('.title')||el).textContent;
+    ghost.style.left=touch.x+'px';ghost.style.top=touch.y+'px';
+    document.body.appendChild(ghost);
+  },350);
+},{passive:true});
+main.addEventListener('touchmove',e=>{
+  if(!touch) return;
+  const t=e.touches[0];
+  if(!touch.active){
+    if(Math.hypot(t.clientX-touch.x,t.clientY-touch.y)>10) endTouch();
+    return;
+  }
+  e.preventDefault();
+  touch.x=t.clientX;touch.y=t.clientY;
+  ghost.style.left=t.clientX+'px';ghost.style.top=t.clientY+'px';
+  if(t.clientY<70) window.scrollBy(0,-14); else if(t.clientY>innerHeight-70) window.scrollBy(0,14);
+  const under=document.elementFromPoint(t.clientX,t.clientY)?.closest('[data-dropday]');
+  document.querySelectorAll('.drop').forEach(x=>{if(x!==under) x.classList.remove('drop')});
+  if(under) under.classList.add('drop');
+},{passive:false});
+main.addEventListener('touchend',e=>{
+  if(!touch) return;
+  if(touch.active){
+    e.preventDefault();
+    const d=document.querySelector('.drop')?.dataset.dropday,id=touch.id;
+    endTouch();
+    if(d){S.justDropped=true;setTimeout(()=>S.justDropped=false,300);moveTo(id,d)}
+  }else endTouch();
+});
+main.addEventListener('touchcancel',endTouch);
+main.addEventListener('contextmenu',e=>{if(touch&&touch.active) e.preventDefault()});
 
 /* 자정이 지나거나 다시 화면을 열면 날짜 갱신 + 자동 넘김 */
 function checkDayChange(){
