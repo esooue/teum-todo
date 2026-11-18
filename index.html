@@ -18,7 +18,7 @@ html,body{margin:0;background:var(--bg);color:var(--ink);
   font-family:Pretendard,"Apple SD Gothic Neo","Malgun Gothic","Noto Sans KR",system-ui,sans-serif;font-size:15px;-webkit-text-size-adjust:100%}
 button,input{font:inherit;color:inherit}
 button{cursor:pointer;background:none;border:0;padding:0}
-.wrap{max-width:1600px;margin:0 auto;padding:16px 16px 80px}
+.wrap{max-width:1920px;margin:0 auto;padding:16px 16px 80px}
 header{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:14px}
 h1{font-size:20px;margin:0;letter-spacing:-.3px}
 .today-txt{color:var(--sub);font-size:13px;margin-top:2px}
@@ -68,9 +68,9 @@ ul.list{list-style:none;margin:0;padding:0}
 .item.wrapable{flex-wrap:wrap}
 .empty{color:var(--sub);text-align:center;padding:28px 0;font-size:14px}
 /* week */
-.week{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:8px}
+.week{display:grid;grid-template-columns:repeat(7,minmax(190px,1fr));gap:6px;overflow-x:auto;padding-bottom:4px}
 @media (max-width:1100px) and (min-width:861px){.week{grid-template-columns:repeat(4,minmax(0,1fr))}}
-.col{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:10px;min-height:180px;display:flex;flex-direction:column}
+.col{background:var(--card);border:1px solid var(--line);border-radius:var(--r);padding:9px 8px;min-height:180px;display:flex;flex-direction:column}
 .col.today{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
 .col h3{margin:0 0 6px;font-size:14px;display:flex;justify-content:space-between;align-items:baseline;cursor:pointer}
 .col h3 span{font-weight:400;font-size:12px;color:var(--sub)}
@@ -172,6 +172,14 @@ header>div:first-child{flex:0 0 auto}
 }
 [data-drag]{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 .dragghost{position:fixed;z-index:50;pointer-events:none;background:var(--card);border:1px solid var(--accent);border-radius:8px;padding:6px 10px;font-size:13px;box-shadow:0 6px 18px rgba(0,0,0,.25);max-width:70vw;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transform:translate(-50%,-120%)}
+.three{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;align-items:start}
+.c3.today{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+.dh{display:flex;align-items:baseline;gap:8px;margin:0 0 10px;font-size:15px}
+.dh b{color:var(--accent)}
+.dh span{font-weight:600}
+.dh em{margin-left:auto;font-style:normal;font-size:12px;color:var(--sub);font-weight:400}
+.c3 .prog{margin-bottom:10px}
+@media (max-width:860px){.three{grid-template-columns:1fr}}
 #toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s;max-width:90vw}
 #toast.show{opacity:1}
 </style>
@@ -191,7 +199,7 @@ header>div:first-child{flex:0 0 auto}
   <nav class="people" id="people"></nav>
   <div class="bar">
     <div class="seg">
-      <button data-view="day" class="on">하루</button>
+      <button data-view="day" class="on">3일</button>
       <button data-view="week">주간</button>
       <button data-view="month">월간</button>
     </div>
@@ -326,25 +334,30 @@ function itemHTML(it){
   const confirm=(ed && S.confirmDel===it.id)?`<div class="menu">이 할 일을 삭제할까요?
       <button class="del solid" data-act="delyes">삭제</button><button data-act="delno">취소</button></div>`:'';
   const acts=ed?`<div class="acts">
-      ${!it.done?`<button class="ico" data-act="tomorrow" title="하루 미루기" aria-label="하루 미루기">${ARROW}</button>`:''}
       <button class="ico" data-act="edit" title="수정" aria-label="수정">${PENCIL}</button>
       <button class="ico" data-act="del" title="삭제" aria-label="삭제">${XICON}</button></div>`:'';
-  const drag=ed&&S.view==='week';
+  const drag=ed&&(S.view==='week'||S.view==='day');
   return `<li class="item wrapable ${it.done?'done':''}" data-id="${esc(it.id)}" ${drag?'draggable="true" data-drag="1"':''}>
     <button class="chk" data-act="toggle" ${ed?'':'disabled'} aria-label="완료 체크">✓</button>
     <div class="txt"><span class="title" ${ed?'data-dbl="1" title="더블클릭해서 수정"':''}>${esc(it.title)}</span>${badgeOf(it)}</div>
     ${acts}${confirm}</li>`;
 }
 function renderDay(){
-  const uid=S.viewing,list=itemsOn(uid,S.day);
-  const done=list.filter(i=>i.done).length,pct=list.length?Math.round(done/list.length*100):0;
-  const ed=editable();
-  return `<section class="card">
-    ${uid!==S.me?`<div class="owner-line">${esc(nameOf(uid))}님의 할 일 · ${canEditList(uid)?'관리자 편집':'보기 전용'}</div>`:''}
-    <div class="prog"><span>${done}/${list.length} 완료</span><div class="track"><div class="fill" style="width:${pct}%"></div></div><span>${pct}%</span></div>
-    ${ed?`<form class="add" data-day="${S.day}"><input name="t" placeholder="할 일을 입력하고 Enter" autocomplete="off" maxlength="200"><button>추가</button></form>`:''}
-    ${list.length?`<ul class="list">${list.map(i=>itemHTML(i,false)).join('')}</ul>`:`<div class="empty">${S.day===today()?'오늘':'이 날'} 등록된 할 일이 없습니다.</div>`}
-  </section>`;
+  const uid=S.viewing,t=today(),ed=editable();
+  const days=[-1,0,1].map(n=>addDays(S.day,n));
+  const rel={[addDays(t,-1)]:'어제',[t]:'오늘',[addDays(t,1)]:'내일'};
+  let html=uid!==S.me?`<div class="owner-line">${esc(nameOf(uid))}님의 할 일 · ${canEditList(uid)?'관리자 편집':'보기 전용'}</div>`:'';
+  html+='<div class="three">';
+  days.forEach(d=>{
+    const list=itemsOn(uid,d),done=list.filter(i=>i.done).length,pct=list.length?Math.round(done/list.length*100):0;
+    html+=`<section class="card c3 ${d===t?'today':''}" ${ed?`data-dropday="${d}"`:''}>
+      <h3 class="dh">${rel[d]?`<b>${rel[d]}</b>`:''}<span>${fmtDay(d)}</span><em>${list.length?done+'/'+list.length:''}</em></h3>
+      <div class="prog"><div class="track"><div class="fill" style="width:${pct}%"></div></div></div>
+      ${ed?`<form class="add" data-day="${d}"><input name="t" placeholder="할 일 입력 후 Enter" autocomplete="off" maxlength="200"><button>추가</button></form>`:''}
+      ${list.length?`<ul class="list">${list.map(i=>itemHTML(i)).join('')}</ul>`:`<div class="empty">등록된 할 일이 없습니다.</div>`}
+    </section>`;
+  });
+  return html+'</div>';
 }
 function renderWeek(){
   const ws=weekStart(S.day),t=today(),ed=editable(),uid=S.viewing;
@@ -356,7 +369,7 @@ function renderWeek(){
       <h3 data-goday="${d}">${DOW[parse(d).getDay()]} ${fmtShort(d)}<span>${list.length?done+'/'+list.length:''}</span></h3>
       <ul class="list">${list.map(x=>itemHTML(x,true)).join('')}</ul>
       ${ed?(S.addingDay===d
-        ?`<form class="add" data-day="${d}"><input name="t" placeholder="할 일 입력" autocomplete="off" maxlength="200"><button>추가</button></form>`
+        ?`<form class="add" data-day="${d}"><input name="t" placeholder="할 일 입력" autocomplete="off" maxlength="200"><button>추가</button><button type="button" class="xbtn" data-canceladd aria-label="취소">${XICON}</button></form>`
         :`<button class="plus" data-addday="${d}">+ 추가</button>`):''}
     </div>`;
   }
@@ -397,7 +410,7 @@ function render(){
   const ws=weekStart(S.day);
   const md=parse(S.day);
   document.getElementById('dateLbl').textContent=S.view==='day'
-    ?fmtDay(S.day)
+    ?`${fmtShort(addDays(S.day,-1))} ~ ${fmtShort(addDays(S.day,1))}`
     :S.view==='week'?`${fmtShort(ws)} ~ ${fmtShort(addDays(ws,6))}`
     :`${md.getFullYear()}년 ${md.getMonth()+1}월`;
   renderPeople();
