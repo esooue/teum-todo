@@ -274,18 +274,14 @@ function setSync(kind,txt){const d=document.getElementById('dot');d.className='d
 function setBanner(html){document.getElementById('banner').innerHTML=html?`<div class="banner">${html}</div>`:''}
 
 /* ---------- 할 일 계산 ---------- */
-function effDate(it){return (!it.done && !it.stay && it.date<today())?today():it.date}
+function effDate(it){return it.date}
 function itemsOf(uid){return Object.values(S.items[uid]||{})}
 function itemsOn(uid,day){
   return itemsOf(uid).filter(it=>effDate(it)===day)
     .sort((a,b)=>(a.done-b.done)||((a.createdAt||0)-(b.createdAt||0)));
 }
-const isOverdue=it=>!it.done && (it.origDate||it.date)<today();
-function badgeOf(it){
-  if(it.done||!it.origDate) return '';
-  const n=diffDays(effDate(it),it.origDate);
-  return n>0?`<span class="badge">+${n}일 밀림</span>`:'';
-}
+const isOverdue=it=>!it.done && it.date<today();
+function badgeOf(){return ''}
 const canEditList=uid=>!S.readOnly && (uid===S.me || S.isAdmin);
 const editable=()=>canEditList(S.viewing);
 
@@ -308,9 +304,14 @@ const ops={
 
 /* 지난 날짜의 미완료 항목을 오늘로 옮김 (본인 항목만, 바뀔 때만 저장) */
 function rollover(uid){
+  // 자동 넘김은 사용하지 않음. 예전에 자동으로 오늘로 넘어온 할 일은 원래 날짜로 되돌림(1회성).
+  if(!uid) return;
   const t=today();
-  const list=uid?[uid]:[S.me,...S.members].filter(canEditList);
-  list.forEach(k=>itemsOf(k).forEach(it=>{if(!it.done && !it.stay && it.date<t) updateDoc(itemRef(it.id,k),{date:t}).catch(handleErr)}));
+  if(!canEditList(uid)) return;
+  itemsOf(uid).forEach(it=>{
+    if(!it.done && it.origDate && it.origDate<it.date && it.date<=t)
+      updateDoc(itemRef(it.id,uid),{date:it.origDate}).catch(handleErr);
+  });
 }
 
 /* ---------- 렌더링 ---------- */
