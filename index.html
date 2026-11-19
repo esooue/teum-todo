@@ -323,7 +323,7 @@ function renderPeople(){
   const list=[S.me,...S.members.filter(u=>u!==S.me)];
   document.getElementById('people').innerHTML=list.map(uid=>{
     const open=itemsOn(uid,today()).filter(i=>!i.done).length;
-    const label=uid===S.me?`나${S.local?'':' · '+esc(nameOf(uid))}`:esc(nameOf(uid));
+    const label=esc(nameOf(uid));
     return `<button class="chip ${uid===S.viewing?'on':''}" data-person="${esc(uid)}">${label}<small>${open}</small></button>`;
   }).join('')+(S.isAdmin?`<button class="chip add-chip" data-addperson>+ 직원 추가</button>`:'');
 }
