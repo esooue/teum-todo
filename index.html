@@ -180,6 +180,10 @@ header>div:first-child{flex:0 0 auto}
 .dh em{margin-left:auto;font-style:normal;font-size:12px;color:var(--sub);font-weight:400}
 .c3 .prog{margin-bottom:10px}
 @media (max-width:860px){.three{grid-template-columns:1fr}}
+.item.overdue .title{color:var(--danger)}
+.item.overdue .chk{border-color:var(--danger)}
+.ml li.overdue{color:var(--danger)}
+.ml li.overdue::before{color:var(--danger)}
 #toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:13px;opacity:0;pointer-events:none;transition:opacity .2s;max-width:90vw}
 #toast.show{opacity:1}
 </style>
@@ -276,6 +280,7 @@ function itemsOn(uid,day){
   return itemsOf(uid).filter(it=>effDate(it)===day)
     .sort((a,b)=>(a.done-b.done)||((a.createdAt||0)-(b.createdAt||0)));
 }
+const isOverdue=it=>!it.done && (it.origDate||it.date)<today();
 function badgeOf(it){
   if(it.done||!it.origDate) return '';
   const n=diffDays(effDate(it),it.origDate);
@@ -337,7 +342,7 @@ function itemHTML(it){
       <button class="ico" data-act="edit" title="수정" aria-label="수정">${PENCIL}</button>
       <button class="ico" data-act="del" title="삭제" aria-label="삭제">${XICON}</button></div>`:'';
   const drag=ed&&(S.view==='week'||S.view==='day');
-  return `<li class="item wrapable ${it.done?'done':''}" data-id="${esc(it.id)}" ${drag?'draggable="true" data-drag="1"':''}>
+  return `<li class="item wrapable ${it.done?'done':''} ${isOverdue(it)?'overdue':''}" data-id="${esc(it.id)}" ${drag?'draggable="true" data-drag="1"':''}>
     <button class="chk" data-act="toggle" ${ed?'':'disabled'} aria-label="완료 체크">✓</button>
     <div class="txt"><span class="title" ${ed?'data-dbl="1" title="더블클릭해서 수정"':''}>${esc(it.title)}</span>${badgeOf(it)}</div>
     ${acts}${confirm}</li>`;
@@ -390,7 +395,7 @@ function renderMonth(){
     total+=list.length;doneAll+=done;
     const dow=dd.getDay();
     const md=canEditList(uid);
-    const shown=list.map(x=>`<li class="${x.done?'done':''}" ${md?`draggable="true" data-drag="1" data-id="${esc(x.id)}"`:''}>${esc(x.title)}</li>`).join('');
+    const shown=list.map(x=>`<li class="${x.done?'done':''} ${isOverdue(x)?'overdue':''}" ${md?`draggable="true" data-drag="1" data-id="${esc(x.id)}"`:''}>${esc(x.title)}</li>`).join('');
     const more='';
     cells+=`<div class="mc ${inMonth?'':'out'} ${d===t?'today':''}" ${inMonth?`data-goday="${d}"`:''} ${inMonth&&canEditList(uid)?`data-dropday="${d}"`:''}>
       <div class="mh"><span class="dn ${dow===0?'sun':dow===6?'sat':''}">${dd.getDate()}</span>
